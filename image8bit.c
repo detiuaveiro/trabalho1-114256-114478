@@ -195,6 +195,10 @@ Image ImageCreate(int width, int height, uint8 maxval) { ///
 void ImageDestroy(Image *imgp) { ///
   assert(imgp != NULL);
   // Insert your code here!
+
+  free((*imgp)->pixel);
+  free(imgp);
+  imgp = NULL;
 }
 
 /// PGM file operations
