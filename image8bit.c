@@ -436,7 +436,13 @@ Image ImageRotate(Image img) { ///
 /// On failure, returns NULL and errno/errCause are set accordingly.
 Image ImageMirror(Image img) { ///
   assert(img != NULL);
-  // Insert your code here!
+  Image mirImg = ImageCreate(img->width, img->height, img->maxval);
+  for(int i=0; i<img->height;i++){
+    for(int j=0; j<img->width;j++){
+      ImageSetPixel(mirImg, j, i, ImageGetPixel(img, img->width-1-j, i));
+    }
+  }
+  return mirImg;
 }
 
 /// Crop a rectangular subimage from img.
@@ -454,7 +460,13 @@ Image ImageMirror(Image img) { ///
 Image ImageCrop(Image img, int x, int y, int w, int h) { ///
   assert(img != NULL);
   assert(ImageValidRect(img, x, y, w, h));
-  // Insert your code here!
+  Image newImg = ImageCreate(w, h, img->maxval);
+  for(int i=0; i<h; i++){
+    for(int j=0; j<w; j++){
+      ImageSetPixel(newImg, j, i, ImageGetPixel(img, j+x, i+y));
+    }
+  }
+  return newImg;
 }
 
 /// Operations on two images
@@ -467,7 +479,11 @@ void ImagePaste(Image img1, int x, int y, Image img2) { ///
   assert(img1 != NULL);
   assert(img2 != NULL);
   assert(ImageValidRect(img1, x, y, img2->width, img2->height));
-  // Insert your code here!
+  for(int i=0; i<img2->height; i++){
+    for(int j=0; j<img2->width; j++){
+      ImageSetPixel(img1, j+x, i+y, ImageGetPixel(img2, j, i));
+    }
+  }
 }
 
 /// Blend an image into a larger image.
