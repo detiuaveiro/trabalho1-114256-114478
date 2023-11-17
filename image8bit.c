@@ -475,9 +475,9 @@ Image ImageRotate(Image img) { ///
 Image ImageMirror(Image img) { ///
   assert(img != NULL);
   Image mirImg = ImageCreate(img->width, img->height, img->maxval);
-  for(int i=0; i<img->height;i++){
-    for(int j=0; j<img->width;j++){
-      ImageSetPixel(mirImg, j, i, ImageGetPixel(img, img->width-1-j, i));
+  for (int i = 0; i < img->height; i++) {
+    for (int j = 0; j < img->width; j++) {
+      ImageSetPixel(mirImg, j, i, ImageGetPixel(img, img->width - 1 - j, i));
     }
   }
   return mirImg;
@@ -499,9 +499,9 @@ Image ImageCrop(Image img, int x, int y, int w, int h) { ///
   assert(img != NULL);
   assert(ImageValidRect(img, x, y, w, h));
   Image newImg = ImageCreate(w, h, img->maxval);
-  for(int i=0; i<h; i++){
-    for(int j=0; j<w; j++){
-      ImageSetPixel(newImg, j, i, ImageGetPixel(img, j+x, i+y));
+  for (int i = 0; i < h; i++) {
+    for (int j = 0; j < w; j++) {
+      ImageSetPixel(newImg, j, i, ImageGetPixel(img, j + x, i + y));
     }
   }
   return newImg;
@@ -517,9 +517,9 @@ void ImagePaste(Image img1, int x, int y, Image img2) { ///
   assert(img1 != NULL);
   assert(img2 != NULL);
   assert(ImageValidRect(img1, x, y, img2->width, img2->height));
-  for(int i=0; i<img2->height; i++){
-    for(int j=0; j<img2->width; j++){
-      ImageSetPixel(img1, j+x, i+y, ImageGetPixel(img2, j, i));
+  for (int i = 0; i < img2->height; i++) {
+    for (int j = 0; j < img2->width; j++) {
+      ImageSetPixel(img1, j + x, i + y, ImageGetPixel(img2, j, i));
     }
   }
 }
