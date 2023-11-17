@@ -380,6 +380,12 @@ void ImageSetPixel(Image img, int x, int y, uint8 level) { ///
 void ImageNegative(Image img) { ///
   assert(img != NULL);
   // Insert your code here!
+
+  const int pixels = img->width * img->height;
+  for (int i = 0; i < pixels; i++) {
+    PIXMEM++;
+    img->pixel[i] = img->maxval - img->pixel[i];
+  }
 }
 
 /// Apply threshold to image.
