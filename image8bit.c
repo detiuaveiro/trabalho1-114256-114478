@@ -451,6 +451,18 @@ void ImageBrighten(Image img, double factor) { ///
 Image ImageRotate(Image img) { ///
   assert(img != NULL);
   // Insert your code here!
+
+  Image newImg = ImageCreate(img->height, img->width, img->maxval);
+
+  for (int y = 0; y < img->height; y++) {
+    for (int x = 0; x < img->width; x++) {
+      int newx = y;
+      int newy = img->width - 1 - x;
+      uint8 value = ImageGetPixel(img, x, y);
+      ImageSetPixel(newImg, newx, newy, value);
+    }
+  }
+  return newImg;
 }
 
 /// Mirror an image = flip left-right.
