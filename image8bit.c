@@ -399,6 +399,15 @@ void ImageNegative(Image img) { ///
 void ImageThreshold(Image img, uint8 thr) { ///
   assert(img != NULL);
   // Insert your code here!
+  const int pixels = img->width * img->height;
+  for (int i = 0; i < pixels; i++) {
+    PIXMEM += 2;
+    if (img->pixel[i] < thr) {
+      img->pixel[i] = 0;
+    } else {
+      img->pixel[i] = img->maxval;
+    }
+  }
 }
 
 /// Brighten image by a factor.
