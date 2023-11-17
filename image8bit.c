@@ -418,8 +418,14 @@ void ImageBrighten(Image img, double factor) { ///
   assert(img != NULL);
   assert(factor >= 0.0);
   // Insert your code here!
+  const int pixels = img->width * img->height;
+  for (int i = 0; i < pixels; i++) {
+    PIXMEM += 2;
+    unsigned int brightened_pixel = img->pixel[i] * factor + 0.5;
+    img->pixel[i] =
+        brightened_pixel <= img->maxval ? brightened_pixel : img->maxval;
+  }
 }
-
 
 /// Geometric transformations
 
