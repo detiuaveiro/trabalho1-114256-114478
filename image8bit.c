@@ -315,6 +315,21 @@ int ImageMaxval(Image img) { ///
 void ImageStats(Image img, uint8 *min, uint8 *max) { ///
   assert(img != NULL);
   // Insert your code here!
+  *min = img->maxval;
+  *max = 0;
+
+  int img_area = img->width * img->height;
+
+  for (int i = 0; i < img_area; i++) {
+    PIXMEM++;
+    uint8 pixel_val = img->pixel[i];
+    if (pixel_val < *min) {
+      *min = pixel_val;
+    }
+    if (pixel_val > *max) {
+      *max = pixel_val;
+    }
+  }
 }
 
 /// Check if pixel position (x,y) is inside img.
