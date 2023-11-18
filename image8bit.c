@@ -196,14 +196,9 @@ void ImageDestroy(Image *imgp) { ///
   assert(imgp != NULL);
   // Insert your code here!
 
-  if (*imgp == NULL) {
-    imgp = NULL;
-    return;
-  }
-
   free((*imgp)->pixel);
   free(*imgp);
-  imgp = NULL;
+  *imgp = NULL;
 }
 
 /// PGM file operations
