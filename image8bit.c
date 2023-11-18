@@ -592,10 +592,55 @@ int ImageLocateSubImage(Image img1, int *px, int *py, Image img2) { ///
 
 /// Filtering
 
+static int clamp0(int val, int max_val) {
+  if (val < 0)
+    return 0;
+  else if (val > max_val)
+    return max_val;
+  else
+    return val;
+}
+
+static uint8 blurPixel(Image img, int dx, int dy, int x, int y) {
+  int sum = 0;
+  double kernel_area = (2 * dx + 1) * (2 * dy + 1);
+
+  for (int yi = y - dy; yi <= y + dy; yi++) {
+    for (int xi = x - dx; xi <= x + dx; xi++) {
+      int valid_x = clamp0(xi, img->width - 1);
+      int valid_y = clamp0(yi, img->height - 1);
+
+      sum += ImageGetPixel(img, valid_x, valid_y);
+    }
+  }
+  uint8 average = sum / kernel_area + 0.5;
+  return average;
+}
+
 /// Blur an image by a applying a (2dx+1)x(2dy+1) mean filter.
 /// Each pixel is substituted by the mean of the pixels in the rectangle
 /// [x-dx, x+dx]x[y-dy, y+dy].
 /// The image is changed in-place.
 void ImageBlur(Image img, int dx, int dy) { ///
   // Insert your code here!
+
+  // int kernel_area = (2 * dx + 1) * (2 * dy + 1);
+  int img_area = img->width * img->height;
+  Image copied_image = ImageCreate(img->width, img->height, img->maxval);
+  // TODO: find a better way of solving this problem
+  if (copied_image == NULL) {
+    errCause = "Failed to allocate memory for the copied image.";
+    return;
+  }
+  for (int i = 0; i < img_area; i++) {
+    PIXMEM += 2;
+    copied_image->pixel[i] = img->pixel[i];
+  }
+
+  for (int y = 0; y < img->height; y++) {
+    for (int x = 0; x < img->width; x++) {
+      ImageSetPixel(img, x, y, blurPixel(copied_image, dx, dy, x, y));
+    }
+  }
+  ImageDestroy(&copied_image);
 }
