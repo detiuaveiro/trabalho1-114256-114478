@@ -592,6 +592,7 @@ int ImageLocateSubImage(Image img1, int *px, int *py, Image img2) { ///
 
 /// Filtering
 
+// Clamp a value between 0 and max_val
 static int clamp0(int val, int max_val) {
   if (val < 0)
     return 0;
@@ -601,11 +602,39 @@ static int clamp0(int val, int max_val) {
     return val;
 }
 
-static uint8 blurPixel(Image img, int dx, int dy, int x, int y) {
-  int sum = 0;
+// Get value of blured pixel
+// static uint8 blurPixel(Image img, int dx, int dy, int x, int y) {
+//   int sum = 0;
+//   double kernel_area = (2 * dx + 1) * (2 * dy + 1);
+//
+//   for (int yi = y - dy; yi <= y + dy; yi++) {
+//     for (int xi = x - dx; xi <= x + dx; xi++) {
+//       int valid_x = clamp0(xi, img->width - 1);
+//       int valid_y = clamp0(yi, img->height - 1);
+//
+//       sum += ImageGetPixel(img, valid_x, valid_y);
+//     }
+//   }
+//   uint8 average = sum / kernel_area + 0.5;
+//   return average;
+// }
+
+// Get value of blured pixel
+static uint8 blurPixelv2(Image img, int dx, int dy, int x, int y,
+                         int *prev_sum) {
+  int sum = x == 0 ? 0 : *prev_sum;
   double kernel_area = (2 * dx + 1) * (2 * dy + 1);
 
   for (int yi = y - dy; yi <= y + dy; yi++) {
+    if (x != 0) {
+      int next_x = clamp0(x + dx, img->width - 1);
+      int prev_x = clamp0(x - dx - 1, img->width - 1);
+      int valid_y = clamp0(yi, img->height - 1);
+
+      sum -= ImageGetPixel(img, prev_x, valid_y);
+      sum += ImageGetPixel(img, next_x, valid_y);
+      continue;
+    }
     for (int xi = x - dx; xi <= x + dx; xi++) {
       int valid_x = clamp0(xi, img->width - 1);
       int valid_y = clamp0(yi, img->height - 1);
@@ -613,6 +642,7 @@ static uint8 blurPixel(Image img, int dx, int dy, int x, int y) {
       sum += ImageGetPixel(img, valid_x, valid_y);
     }
   }
+  *prev_sum = sum;
   uint8 average = sum / kernel_area + 0.5;
   return average;
 }
@@ -638,8 +668,10 @@ void ImageBlur(Image img, int dx, int dy) { ///
   }
 
   for (int y = 0; y < img->height; y++) {
+    int prev_sum;
     for (int x = 0; x < img->width; x++) {
-      ImageSetPixel(img, x, y, blurPixel(copied_image, dx, dy, x, y));
+      ImageSetPixel(img, x, y,
+                    blurPixelv2(copied_image, dx, dy, x, y, &prev_sum));
     }
   }
   ImageDestroy(&copied_image);
