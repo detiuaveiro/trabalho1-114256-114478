@@ -170,6 +170,7 @@ Image ImageCreate(int width, int height, uint8 maxval) { ///
   Image img = (Image)malloc(sizeof(struct image));
 
   if (img == NULL) {
+    errno = ENOMEM;
     errCause = "Failled to allocate image.";
     return NULL;
   }
@@ -178,8 +179,10 @@ Image ImageCreate(int width, int height, uint8 maxval) { ///
   img->height = height;
   img->maxval = maxval;
   img->pixel = malloc(sizeof(uint8) * width * height);
+  img->pixel = (uint8 *)calloc(width * height, sizeof(uint8));
   if (img->pixel == NULL) {
     free(img);
+    errno = ENOMEM;
     errCause = "Failed to allocate pixels.";
     return NULL;
   }
@@ -195,6 +198,9 @@ Image ImageCreate(int width, int height, uint8 maxval) { ///
 void ImageDestroy(Image *imgp) { ///
   assert(imgp != NULL);
   // Insert your code here!
+
+  if (*imgp == NULL)
+    return;
 
   free((*imgp)->pixel);
   free(*imgp);
@@ -315,19 +321,20 @@ int ImageMaxval(Image img) { ///
 void ImageStats(Image img, uint8 *min, uint8 *max) { ///
   assert(img != NULL);
   // Insert your code here!
-  *min = img->maxval;
-  *max = 0;
 
-  int img_area = img->width * img->height;
+  PIXMEM++;
+  *min = *max = img->pixel[0];
 
-  for (int i = 0; i < img_area; i++) {
+  const int imgArea = img->width * img->height;
+
+  for (int i = 1; i < imgArea; i++) {
     PIXMEM++;
-    uint8 pixel_val = img->pixel[i];
-    if (pixel_val < *min) {
-      *min = pixel_val;
+    const uint8 pixelVal = img->pixel[i];
+    if (pixelVal < *min) {
+      *min = pixelVal;
     }
-    if (pixel_val > *max) {
-      *max = pixel_val;
+    if (pixelVal > *max) {
+      *max = pixelVal;
     }
   }
 }
@@ -358,9 +365,8 @@ int ImageValidRect(Image img, int x, int y, int w, int h) { ///
 // This internal function is used in ImageGetPixel / ImageSetPixel.
 // The returned index must satisfy (0 <= index < img->width*img->height)
 static inline int G(Image img, int x, int y) {
-  int index;
   // Insert your code here!
-  index = img->width * y + x;
+  const int index = img->width * y + x;
 
   assert(0 <= index && index < img->width * img->height);
   return index;
@@ -396,9 +402,9 @@ void ImageNegative(Image img) { ///
   assert(img != NULL);
   // Insert your code here!
 
-  const int pixels = img->width * img->height;
-  for (int i = 0; i < pixels; i++) {
-    PIXMEM++;
+  const int imgArea = img->width * img->height;
+  for (int i = 0; i < imgArea; i++) {
+    PIXMEM += 2;
     img->pixel[i] = img->maxval - img->pixel[i];
   }
 }
@@ -409,8 +415,8 @@ void ImageNegative(Image img) { ///
 void ImageThreshold(Image img, uint8 thr) { ///
   assert(img != NULL);
   // Insert your code here!
-  const int pixels = img->width * img->height;
-  for (int i = 0; i < pixels; i++) {
+  const int imgArea = img->width * img->height;
+  for (int i = 0; i < imgArea; i++) {
     PIXMEM += 2;
     if (img->pixel[i] < thr) {
       img->pixel[i] = 0;
@@ -428,12 +434,12 @@ void ImageBrighten(Image img, double factor) { ///
   assert(img != NULL);
   assert(factor >= 0.0);
   // Insert your code here!
-  const int pixels = img->width * img->height;
-  for (int i = 0; i < pixels; i++) {
+  const int imgArea = img->width * img->height;
+  for (int i = 0; i < imgArea; i++) {
     PIXMEM += 2;
-    unsigned int brightened_pixel = img->pixel[i] * factor + 0.5;
+    const unsigned int brightenedPixel = img->pixel[i] * factor + 0.5;
     img->pixel[i] =
-        brightened_pixel <= img->maxval ? brightened_pixel : img->maxval;
+        brightenedPixel <= img->maxval ? brightenedPixel : img->maxval;
   }
 }
 
@@ -462,17 +468,21 @@ Image ImageRotate(Image img) { ///
   assert(img != NULL);
   // Insert your code here!
 
-  Image newImg = ImageCreate(img->height, img->width, img->maxval);
+  Image rotatedImg = ImageCreate(img->height, img->width, img->maxval);
+  if (rotatedImg == NULL) {
+    errCause = "Failed to create rotated image.";
+    return NULL;
+  }
 
-  for (int y = 0; y < img->height; y++) {
-    for (int x = 0; x < img->width; x++) {
-      int newx = y;
-      int newy = img->width - 1 - x;
-      uint8 value = ImageGetPixel(img, x, y);
-      ImageSetPixel(newImg, newx, newy, value);
+  for (int yi = 0; yi < img->height; yi++) {
+    for (int xi = 0; xi < img->width; xi++) {
+      const int newx = yi;
+      const int newy = img->width - 1 - xi;
+      const uint8 value = ImageGetPixel(img, xi, yi);
+      ImageSetPixel(rotatedImg, newx, newy, value);
     }
   }
-  return newImg;
+  return rotatedImg;
 }
 
 /// Mirror an image = flip left-right.
@@ -484,13 +494,18 @@ Image ImageRotate(Image img) { ///
 /// On failure, returns NULL and errno/errCause are set accordingly.
 Image ImageMirror(Image img) { ///
   assert(img != NULL);
-  Image mirImg = ImageCreate(img->width, img->height, img->maxval);
-  for (int i = 0; i < img->height; i++) {
-    for (int j = 0; j < img->width; j++) {
-      ImageSetPixel(mirImg, j, i, ImageGetPixel(img, img->width - 1 - j, i));
+  Image mirroredImg = ImageCreate(img->width, img->height, img->maxval);
+  if (mirroredImg == NULL) {
+    errCause = "Failed to create mirrored image.";
+    return NULL;
+  }
+  for (int yi = 0; yi < img->height; yi++) {
+    for (int xi = 0; xi < img->width; xi++) {
+      ImageSetPixel(mirroredImg, xi, yi,
+                    ImageGetPixel(img, img->width - 1 - xi, yi));
     }
   }
-  return mirImg;
+  return mirroredImg;
 }
 
 /// Crop a rectangular subimage from img.
@@ -508,13 +523,17 @@ Image ImageMirror(Image img) { ///
 Image ImageCrop(Image img, int x, int y, int w, int h) { ///
   assert(img != NULL);
   assert(ImageValidRect(img, x, y, w, h));
-  Image newImg = ImageCreate(w, h, img->maxval);
-  for (int i = 0; i < h; i++) {
-    for (int j = 0; j < w; j++) {
-      ImageSetPixel(newImg, j, i, ImageGetPixel(img, j + x, i + y));
+  Image croppedImg = ImageCreate(w, h, img->maxval);
+  if (croppedImg == NULL) {
+    errCause = "Failed to create cropped image.";
+    return NULL;
+  }
+  for (int yi = 0; yi < h; yi++) {
+    for (int xi = 0; xi < w; xi++) {
+      ImageSetPixel(croppedImg, xi, yi, ImageGetPixel(img, xi + x, yi + y));
     }
   }
-  return newImg;
+  return croppedImg;
 }
 
 /// Operations on two images
@@ -527,9 +546,9 @@ void ImagePaste(Image img1, int x, int y, Image img2) { ///
   assert(img1 != NULL);
   assert(img2 != NULL);
   assert(ImageValidRect(img1, x, y, img2->width, img2->height));
-  for (int i = 0; i < img2->height; i++) {
-    for (int j = 0; j < img2->width; j++) {
-      ImageSetPixel(img1, j + x, i + y, ImageGetPixel(img2, j, i));
+  for (int yi = 0; yi < img2->height; yi++) {
+    for (int xi = 0; xi < img2->width; xi++) {
+      ImageSetPixel(img1, xi + x, yi + y, ImageGetPixel(img2, xi, yi));
     }
   }
 }
@@ -548,9 +567,10 @@ void ImageBlend(Image img1, int x, int y, Image img2, double alpha) { ///
 
   for (int yi = 0; yi < img2->height; yi++) {
     for (int xi = 0; xi < img2->width; xi++) {
-      int foreground = ImageGetPixel(img2, xi, yi);
-      int background = ImageGetPixel(img1, xi + x, yi + y);
-      uint8 blendval = (alpha * foreground + (1 - alpha) * background) + 0.5;
+      const uint8 foreground = ImageGetPixel(img2, xi, yi);
+      const uint8 background = ImageGetPixel(img1, xi + x, yi + y);
+      const uint8 blendval =
+          (alpha * foreground + (1 - alpha) * background) + 0.5;
 
       ImageSetPixel(img1, xi + x, yi + y, blendval);
     }
@@ -568,8 +588,8 @@ int ImageMatchSubImage(Image img1, int x, int y, Image img2) { ///
 
   for (int yi = 0; yi < img2->height; yi++) {
     for (int xi = 0; xi < img2->width; xi++) {
-      uint8 pixel1 = ImageGetPixel(img1, xi + x, yi + y);
-      uint8 pixel2 = ImageGetPixel(img2, xi, yi);
+      const uint8 pixel1 = ImageGetPixel(img1, xi + x, yi + y);
+      const uint8 pixel2 = ImageGetPixel(img2, xi, yi);
       if (pixel1 != pixel2)
         return 0;
     }
@@ -588,11 +608,11 @@ int ImageLocateSubImage(Image img1, int *px, int *py, Image img2) { ///
   if (img2->width > img1->width || img2->height > img1->width)
     return 0;
 
-  for (int y = 0; y < (img1->height - img2->height + 1); y++) {
-    for (int x = 0; x < (img1->width - img2->width + 1); x++) {
-      if (ImageMatchSubImage(img1, x, y, img2)) {
-        *px = x;
-        *py = y;
+  for (int yi = 0; yi < (img1->height - img2->height + 1); yi++) {
+    for (int xi = 0; xi < (img1->width - img2->width + 1); xi++) {
+      if (ImageMatchSubImage(img1, xi, yi, img2)) {
+        *px = xi;
+        *py = yi;
         return 1;
       }
     }
@@ -612,10 +632,10 @@ static int clamp0(int val, int max_val) {
     return val;
 }
 
-// Get value of blured pixel
+// Get value of blurred pixel
 // static uint8 blurPixel(Image img, int dx, int dy, int x, int y) {
 //   int sum = 0;
-//   double kernel_area = (2 * dx + 1) * (2 * dy + 1);
+//   const double kernelArea = (2 * dx + 1) * (2 * dy + 1);
 //
 //   for (int yi = y - dy; yi <= y + dy; yi++) {
 //     for (int xi = x - dx; xi <= x + dx; xi++) {
@@ -625,7 +645,7 @@ static int clamp0(int val, int max_val) {
 //       sum += ImageGetPixel(img, valid_x, valid_y);
 //     }
 //   }
-//   uint8 average = sum / kernel_area + 0.5;
+//   const uint8 average = sum / kernelArea + 0.5;
 //   return average;
 // }
 
