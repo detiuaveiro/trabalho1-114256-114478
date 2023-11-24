@@ -178,7 +178,6 @@ Image ImageCreate(int width, int height, uint8 maxval) { ///
   img->width = width;
   img->height = height;
   img->maxval = maxval;
-  img->pixel = malloc(sizeof(uint8) * width * height);
   img->pixel = (uint8 *)calloc(width * height, sizeof(uint8));
   if (img->pixel == NULL) {
     free(img);
@@ -632,77 +631,126 @@ static int clamp0(int val, int max_val) {
     return val;
 }
 
-// Get value of blurred pixel
-// static uint8 blurPixel(Image img, int dx, int dy, int x, int y) {
-//   int sum = 0;
-//   const double kernelArea = (2 * dx + 1) * (2 * dy + 1);
-//
-//   for (int yi = y - dy; yi <= y + dy; yi++) {
-//     for (int xi = x - dx; xi <= x + dx; xi++) {
-//       int valid_x = clamp0(xi, img->width - 1);
-//       int valid_y = clamp0(yi, img->height - 1);
-//
-//       sum += ImageGetPixel(img, valid_x, valid_y);
-//     }
-//   }
-//   const uint8 average = sum / kernelArea + 0.5;
-//   return average;
-// }
-
-// Get value of blured pixel
-static uint8 blurPixelv2(Image img, int dx, int dy, int x, int y,
-                         int *prev_sum) {
-  int sum = x == 0 ? 0 : *prev_sum;
-  double kernel_area = (2 * dx + 1) * (2 * dy + 1);
-
-  for (int yi = y - dy; yi <= y + dy; yi++) {
-    if (x != 0) {
-      int next_x = clamp0(x + dx, img->width - 1);
-      int prev_x = clamp0(x - dx - 1, img->width - 1);
-      int valid_y = clamp0(yi, img->height - 1);
-
-      sum -= ImageGetPixel(img, prev_x, valid_y);
-      sum += ImageGetPixel(img, next_x, valid_y);
-      continue;
-    }
-    for (int xi = x - dx; xi <= x + dx; xi++) {
-      int valid_x = clamp0(xi, img->width - 1);
-      int valid_y = clamp0(yi, img->height - 1);
-
-      sum += ImageGetPixel(img, valid_x, valid_y);
-    }
-  }
-  *prev_sum = sum;
-  uint8 average = sum / kernel_area + 0.5;
-  return average;
-}
-
 /// Blur an image by a applying a (2dx+1)x(2dy+1) mean filter.
 /// Each pixel is substituted by the mean of the pixels in the rectangle
 /// [x-dx, x+dx]x[y-dy, y+dy].
 /// The image is changed in-place.
-void ImageBlur(Image img, int dx, int dy) { ///
-  // Insert your code here!
+// void ImageBlur(Image img, int dx, int dy) { ///
+//   // Insert your code here!
+//
+//   const int kernelArea = (2 * dx + 1) * (2 * dy + 1);
+//   int imgArea = img->width * img->height;
+//   uint8 *blurredPixel = (uint8 *)malloc(sizeof(uint8) * imgArea);
+//   if (blurredPixel == NULL) {
+//     errno = ENOMEM;
+//     errCause = "Failed to allocate blurred pixels.";
+//     return;
+//   }
+//
+//   for (int yi = 0; yi < img->height; yi++) {
+//     for (int xi = 0; xi < img->width; xi++) {
+//       int sum = 0;
+//
+//       for (int dyi = yi - dy; dyi <= yi + dy; dyi++) {
+//         for (int dxi = xi - dx; dxi <= xi + dx; dxi++) {
+//           int valid_x = clamp0(dxi, img->width - 1);
+//           int valid_y = clamp0(dyi, img->height - 1);
+//
+//           sum += ImageGetPixel(img, valid_x, valid_y);
+//         }
+//       }
+//
+//       const uint8 average = (uint8)((double)sum / (double)kernelArea + 0.5);
+//       PIXMEM++;
+//       blurredPixel[G(img, xi, yi)] = average;
+//     }
+//   }
+//
+//   free(img->pixel);
+//   img->pixel = blurredPixel;
+// }
 
-  // int kernel_area = (2 * dx + 1) * (2 * dy + 1);
-  int img_area = img->width * img->height;
-  Image copied_image = ImageCreate(img->width, img->height, img->maxval);
-  // TODO: find a better way of solving this problem
-  if (copied_image == NULL) {
-    errCause = "Failed to allocate memory for the copied image.";
+void ImageBlur(Image img, int dx, int dy) {
+  int imgArea = img->width * img->height;
+  int kernelArea = (2 * dx + 1) * (2 * dy + 1);
+
+  uint8 *blurredPixel = (uint8 *)malloc(sizeof(uint8) * imgArea);
+  if (blurredPixel == NULL) {
+    errno = ENOMEM;
+    errCause = "Failed to allocate blurred pixels.";
     return;
   }
-  for (int i = 0; i < img_area; i++) {
-    PIXMEM += 2;
-    copied_image->pixel[i] = img->pixel[i];
+
+  int *sumarr = (int *)malloc(sizeof(int) * img->width);
+  if (sumarr == NULL) {
+    errno = ENOMEM;
+    errCause = "Failed to allocate blurred pixels.";
+    return;
   }
 
-  for (int y = 0; y < img->height; y++) {
-    int prev_sum;
-    for (int x = 0; x < img->width; x++) {
-      ImageSetPixel(img, x, y,
-                    blurPixelv2(copied_image, dx, dy, x, y, &prev_sum));
+  // Calculate the sum of the verticle slice of the kernal with
+  // col = xi, for every col in the first row.
+  for (int xi = 0; xi < img->width; xi++) {
+    int sum = ImageGetPixel(img, xi, 0) * (dy + 1);
+    for (int dyi = 1; dyi <= dy; dyi++) {
+      sum += ImageGetPixel(img, xi, clamp0(dyi, img->height - 1));
+    }
+    sumarr[xi] = sum;
+  }
+
+  // Initialize the sum to every verticle slice in the first col and
+  // to the left of it.
+  int sum = (dx + 1) * sumarr[0];
+  for (int dxi = 1; dxi <= dx; dxi++) {
+    sum += sumarr[clamp0(dxi, img->width - 1)];
+  }
+
+  // Calculate the average of the first col and write to the blurred pixels.
+  PIXMEM++;
+  blurredPixel[0] = (uint8)((double)sum / (double)kernelArea + 0.5);
+
+  // Calculate all other cols by subtracting the verticle slice to
+  // the left and by adding the verticle slice to the right.
+  for (int xi = 1; xi < img->width; xi++) {
+    sum -= sumarr[clamp0(xi - dx - 1, img->width - 1)];
+    sum += sumarr[clamp0(xi + dx, img->width - 1)];
+
+    PIXMEM++;
+    blurredPixel[xi] = (uint8)((double)sum / (double)kernelArea + 0.5);
+  }
+
+  for (int yi = 1; yi < img->height; yi++) {
+    // Calculate the verticle slices for the next row by subtracting
+    // the top pixel and by adding the bottom pixel.
+    for (int xi = 0; xi < img->width; xi++) {
+      int sum = sumarr[xi];
+      sum -= ImageGetPixel(img, xi, clamp0(yi - dy - 1, img->height - 1));
+      sum += ImageGetPixel(img, xi, clamp0(yi + dy, img->height - 1));
+      sumarr[xi] = sum;
+    }
+
+    // Repeat what was done in the first row for every row
+    // to calculate the kernel size and add to blurred pixels.
+    int sum = (dx + 1) * sumarr[0];
+    for (int dxi = 1; dxi <= dx; dxi++) {
+      sum += sumarr[clamp0(dxi, img->width - 1)];
+    }
+
+    PIXMEM++;
+    blurredPixel[G(img, 0, yi)] =
+        (uint8)((double)sum / (double)kernelArea + 0.5);
+
+    for (int xi = 1; xi < img->width; xi++) {
+      sum -= sumarr[clamp0(xi - dx - 1, img->width - 1)];
+      sum += sumarr[clamp0(xi + dx, img->width - 1)];
+
+      PIXMEM++;
+      blurredPixel[G(img, xi, yi)] =
+          (uint8)((double)sum / (double)kernelArea + 0.5);
     }
   }
-  ImageDestroy(&copied_image);
+  // Free the previous pixel array to avoid memory leaks and
+  // change its pointer to the blurred pixels.
+  free(img->pixel);
+  img->pixel = blurredPixel;
 }
