@@ -143,11 +143,13 @@ void ImageInit(void) { ///
   InstrCalibrate();
   InstrName[0] = "pixmem"; // InstrCount[0] will count pixel array acesses
   // Name other counters here...
+  InstrName[1] = "pixcomp";
 }
 
 // Macros to simplify accessing instrumentation counters:
 #define PIXMEM InstrCount[0]
 // Add more macros here...
+#define PIXCOMP InstrCount[1]
 
 // TIP: Search for PIXMEM or InstrCount to see where it is incremented!
 
@@ -590,6 +592,7 @@ int ImageMatchSubImage(Image img1, int x, int y, Image img2) { ///
       const uint8 pixel1 = ImageGetPixel(img1, xi + x, yi + y);
       const uint8 pixel2 = ImageGetPixel(img2, xi, yi);
       if (pixel1 != pixel2)
+      PIXCOMP++;
         return 0;
     }
   }
