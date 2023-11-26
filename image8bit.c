@@ -448,8 +448,7 @@ void ImageBrighten(Image img, double factor) { ///
   for (int i = 0; i < imgArea; i++) {
     PIXMEM += 2;
     const unsigned int brightenedPixel = img->pixel[i] * factor + 0.5;
-    img->pixel[i] =
-        brightenedPixel <= img->maxval ? brightenedPixel : img->maxval;
+    img->pixel[i] = clamp0(brightenedPixel, img->maxval);
   }
 }
 
