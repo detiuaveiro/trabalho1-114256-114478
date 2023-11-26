@@ -11,10 +11,11 @@
 
 // Student authors (fill in below):
 // NMec:  Name:
-//
-//
+// 114478 Zakhar Kruptsala
+// 114256 Diogo Guedes
 //
 // Date:
+// 26-11-2023
 //
 
 #include "image8bit.h"
@@ -167,8 +168,8 @@ Image ImageCreate(int width, int height, uint8 maxval) { ///
   assert(width >= 0);
   assert(height >= 0);
   assert(0 < maxval && maxval <= PixMax);
-  // Insert your code here!
 
+  // Allocate space for image
   Image img = (Image)malloc(sizeof(struct image));
 
   if (img == NULL) {
@@ -177,9 +178,11 @@ Image ImageCreate(int width, int height, uint8 maxval) { ///
     return NULL;
   }
 
+  // Populate the struct fields
   img->width = width;
   img->height = height;
   img->maxval = maxval;
+  // Allocate space for pixel array with all values black
   img->pixel = (uint8 *)calloc(width * height, sizeof(uint8));
   if (img->pixel == NULL) {
     free(img);
@@ -321,7 +324,6 @@ int ImageMaxval(Image img) { ///
 /// *max is set to the maximum.
 void ImageStats(Image img, uint8 *min, uint8 *max) { ///
   assert(img != NULL);
-  // Insert your code here!
 
   PIXMEM++;
   *min = *max = img->pixel[0];
@@ -349,9 +351,8 @@ int ImageValidPos(Image img, int x, int y) { ///
 /// Check if rectangular area (x,y,w,h) is completely inside img.
 int ImageValidRect(Image img, int x, int y, int w, int h) { ///
   assert(img != NULL);
-  // Insert your code here!
 
-  //   top left corner is inside    bottom right corner is inside
+  //    top left corner is inside         bottom right corner is inside
   return ImageValidPos(img, x, y) && ImageValidPos(img, x + w - 1, y + h - 1);
 }
 
@@ -366,7 +367,6 @@ int ImageValidRect(Image img, int x, int y, int w, int h) { ///
 // This internal function is used in ImageGetPixel / ImageSetPixel.
 // The returned index must satisfy (0 <= index < img->width*img->height)
 static inline int G(Image img, int x, int y) {
-  // Insert your code here!
   const int index = img->width * y + x;
 
   assert(0 <= index && index < img->width * img->height);
@@ -401,7 +401,6 @@ void ImageSetPixel(Image img, int x, int y, uint8 level) { ///
 /// resulting in a "photographic negative" effect.
 void ImageNegative(Image img) { ///
   assert(img != NULL);
-  // Insert your code here!
 
   const int imgArea = img->width * img->height;
   for (int i = 0; i < imgArea; i++) {
@@ -415,7 +414,7 @@ void ImageNegative(Image img) { ///
 /// all pixels with level>=thr to white (maxval).
 void ImageThreshold(Image img, uint8 thr) { ///
   assert(img != NULL);
-  // Insert your code here!
+
   const int imgArea = img->width * img->height;
   for (int i = 0; i < imgArea; i++) {
     PIXMEM += 2;
@@ -427,6 +426,16 @@ void ImageThreshold(Image img, uint8 thr) { ///
   }
 }
 
+// Clamp a value between 0 and max_val
+static int clamp0(int val, int max_val) {
+  if (val < 0)
+    return 0;
+  else if (val > max_val)
+    return max_val;
+  else
+    return val;
+}
+
 /// Brighten image by a factor.
 /// Multiply each pixel level by a factor, but saturate at maxval.
 /// This will brighten the image if factor>1.0 and
@@ -434,7 +443,7 @@ void ImageThreshold(Image img, uint8 thr) { ///
 void ImageBrighten(Image img, double factor) { ///
   assert(img != NULL);
   assert(factor >= 0.0);
-  // Insert your code here!
+
   const int imgArea = img->width * img->height;
   for (int i = 0; i < imgArea; i++) {
     PIXMEM += 2;
@@ -467,7 +476,6 @@ void ImageBrighten(Image img, double factor) { ///
 /// On failure, returns NULL and errno/errCause are set accordingly.
 Image ImageRotate(Image img) { ///
   assert(img != NULL);
-  // Insert your code here!
 
   Image rotatedImg = ImageCreate(img->height, img->width, img->maxval);
   if (rotatedImg == NULL) {
@@ -477,7 +485,10 @@ Image ImageRotate(Image img) { ///
 
   for (int yi = 0; yi < img->height; yi++) {
     for (int xi = 0; xi < img->width; xi++) {
+      // The new x value becomes the same as the previous y
       const int newx = yi;
+      // The new y value becomes the same as the old x counting
+      // from the end (down)
       const int newy = img->width - 1 - xi;
       const uint8 value = ImageGetPixel(img, xi, yi);
       ImageSetPixel(rotatedImg, newx, newy, value);
@@ -564,12 +575,12 @@ void ImageBlend(Image img1, int x, int y, Image img2, double alpha) { ///
   assert(img1 != NULL);
   assert(img2 != NULL);
   assert(ImageValidRect(img1, x, y, img2->width, img2->height));
-  // Insert your code here!
 
   for (int yi = 0; yi < img2->height; yi++) {
     for (int xi = 0; xi < img2->width; xi++) {
       const uint8 foreground = ImageGetPixel(img2, xi, yi);
       const uint8 background = ImageGetPixel(img1, xi + x, yi + y);
+      // Blend formula and added 0.5 to round the value
       const uint8 blendval =
           (alpha * foreground + (1 - alpha) * background) + 0.5;
 
@@ -591,8 +602,8 @@ int ImageMatchSubImage(Image img1, int x, int y, Image img2) { ///
     for (int xi = 0; xi < img2->width; xi++) {
       const uint8 pixel1 = ImageGetPixel(img1, xi + x, yi + y);
       const uint8 pixel2 = ImageGetPixel(img2, xi, yi);
-      if (pixel1 != pixel2)
       PIXCOMP++;
+      if (pixel1 != pixel2)
         return 0;
     }
   }
@@ -624,25 +635,15 @@ int ImageLocateSubImage(Image img1, int *px, int *py, Image img2) { ///
 
 /// Filtering
 
-// Clamp a value between 0 and max_val
-static int clamp0(int val, int max_val) {
-  if (val < 0)
-    return 0;
-  else if (val > max_val)
-    return max_val;
-  else
-    return val;
-}
-
 /// Blur an image by a applying a (2dx+1)x(2dy+1) mean filter.
 /// Each pixel is substituted by the mean of the pixels in the rectangle
 /// [x-dx, x+dx]x[y-dy, y+dy].
 /// The image is changed in-place.
 // void ImageBlur(Image img, int dx, int dy) { ///
-//   // Insert your code here!
 //
 //   const int kernelArea = (2 * dx + 1) * (2 * dy + 1);
 //   int imgArea = img->width * img->height;
+//   // Allocate space for blurred pixel array
 //   uint8 *blurredPixel = (uint8 *)malloc(sizeof(uint8) * imgArea);
 //   if (blurredPixel == NULL) {
 //     errno = ENOMEM;
@@ -669,6 +670,8 @@ static int clamp0(int val, int max_val) {
 //     }
 //   }
 //
+//   // Free the previous pixel array to avoid memory leaks and
+//   // change its pointer to the blurred pixels.
 //   free(img->pixel);
 //   img->pixel = blurredPixel;
 // }
@@ -677,6 +680,7 @@ void ImageBlur(Image img, int dx, int dy) {
   int imgArea = img->width * img->height;
   int kernelArea = (2 * dx + 1) * (2 * dy + 1);
 
+  // Allocate space for blurred pixel array
   uint8 *blurredPixel = (uint8 *)malloc(sizeof(uint8) * imgArea);
   if (blurredPixel == NULL) {
     errno = ENOMEM;
@@ -684,6 +688,7 @@ void ImageBlur(Image img, int dx, int dy) {
     return;
   }
 
+  // Allocate space for sum array
   int *sumarr = (int *)malloc(sizeof(int) * img->width);
   if (sumarr == NULL) {
     errno = ENOMEM;
